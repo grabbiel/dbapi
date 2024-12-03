@@ -26,6 +26,17 @@ bool is_allowed_client(const struct sockaddr_in &client_addr) {
   return true;
 }
 
+// TODO: list_content_videos
+// TODO: list_content_images
+// TODO: list_content_by_status
+// TODO: set, get, update content metadata
+// TODO: update image, video status
+// TODO: register image, video variants
+// TODO: get content by path, slug
+// TODO: delete content
+// TODO: update content
+// TODO: require password to access
+
 // Sample handler for database content
 void handle_get_content(SSL *ssl, std::string &response) {
   // Example JSON response
@@ -99,13 +110,21 @@ void handle_request(SSL *ssl, const char *request,
 }
 
 SSL_CTX *create_context() {
-  const SSL_METHOD *method;
-  SSL_CTX *ctx;
+  const SSL_METHOD *method = TLS_server_method();
+  SSL_CTX *ctx = SSL_CTX_new(method);
 
-  method = TLS_server_method();
-  ctx = SSL_CTX_new(method);
   if (!ctx) {
     perror("Unable to create SSL context");
+    ERR_print_errors_fp(stderr);
+    exit(EXIT_FAILURE);
+  }
+
+  // TODO: complete this certificate check
+  SSL_CTX_set_verify(ctx, SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT,
+                     NULL);
+
+  if (SSL_CTX_load_verify_locations(
+          ctx, "/etc/grabbiel-api/certs/ca/certs/ca.crt", NULL) <= 0) {
     ERR_print_errors_fp(stderr);
     exit(EXIT_FAILURE);
   }
@@ -124,6 +143,7 @@ void configure_context(SSL_CTX *ctx, const char *cert_path,
     exit(EXIT_FAILURE);
   }
 }
+
 int main() {
   Logger::getInstance().setLogFile("/var/log/api-server.log");
   Logger::getInstance().setLogLevel(LogLevel::INFO);
@@ -189,12 +209,24 @@ int main() {
       LOG_ERROR("SSL accept failed");
       ERR_print_errors_fp(stderr);
     } else {
-      memset(buffer, 0, BUFFER_SIZE);
-      int bytes = SSL_read(ssl, buffer, BUFFER_SIZE - 1);
+      X509 *client_cert = SSL_get_peer_certificate(ssl);
+      if (client_cert) {
+        long verify_result = SSL_get_verify_result(ssl);
+        if (verify_result == X509_V_OK) {
 
-      if (bytes > 0) {
-        buffer[bytes] = '\0';
-        handle_request(ssl, buffer, client_addr);
+          memset(buffer, 0, BUFFER_SIZE);
+          int bytes = SSL_read(ssl, buffer, BUFFER_SIZE - 1);
+
+          if (bytes > 0) {
+            buffer[bytes] = '\0';
+            handle_request(ssl, buffer, client_addr);
+          }
+        } else {
+          LOG_ERROR("Client certificate verification failed");
+        }
+        X509_free(client_cert);
+      } else {
+        LOG_ERROR("No client certificate provided");
       }
     }
 
