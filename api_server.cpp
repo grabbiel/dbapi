@@ -15,21 +15,15 @@
 
 #define PORT 8443 // Different from your main web server
 #define BUFFER_SIZE 4096
-#define CLIENT_IP                                                              \
-  "YOUR_LOCAL_MACHINE_IP" // Replace with your local machine's public IP
 
 // Simplified client check - only allows your IP
 bool is_allowed_client(const struct sockaddr_in &client_addr) {
   char client_ip[INET_ADDRSTRLEN];
   inet_ntop(AF_INET, &(client_addr.sin_addr), client_ip, INET_ADDRSTRLEN);
-  std::string ip_str = client_ip;
 
-  bool ip_allowed = (ip_str == CLIENT_IP);
+  LOG_INFO("Connection attempt from IP: ", client_ip);
 
-  LOG_INFO("Connection attempt from IP: ", ip_str, " - ",
-           ip_allowed ? "allowed" : "denied");
-
-  return ip_allowed;
+  return true;
 }
 
 // Sample handler for database content
