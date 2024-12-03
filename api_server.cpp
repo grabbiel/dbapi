@@ -52,6 +52,7 @@ void handle_get_content(SSL *ssl, std::string &response) {
   LOG_INFO("Processed GET request for content");
 }
 
+// comment that needs to be here to deploy idk why ok bye
 void handle_get(SSL *ssl, const std::string &req) {
   size_t path_start = req.find(" ") + 1;
   size_t path_end = req.find(" ", path_start);
