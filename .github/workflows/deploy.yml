@@ -1,0 +1,42 @@
+name: Deploy API Server
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v2
+    
+    - name: Deploy to VM
+      env:
+        PRIVATE_KEY: ${{ secrets.GCP_SSH_PRIVATE_KEY }}
+        VM_USER: ${{ secrets.VM_USER }}
+        VM_IP: ${{ secrets.VM_IP }}
+      run: |
+        # Setup SSH
+        mkdir -p ~/.ssh
+        echo "$PRIVATE_KEY" > ~/.ssh/id_rsa
+        chmod 600 ~/.ssh/id_rsa
+        
+        # Add VM host key to known hosts
+        ssh-keyscan $VM_IP >> ~/.ssh/known_hosts
+        
+        # Create directory if it does not exist
+        ssh -i ~/.ssh/id_rsa $VM_USER@$VM_IP 'mkdir -p /repo/api-server/include'
+        
+        # Copy files to VM
+        scp -i ~/.ssh/id_rsa api_server.cpp $VM_USER@$VM_IP:/repo/api-server/
+        scp -i ~/.ssh/id_rsa include/Logger.hpp $VM_USER@$VM_IP:/repo/api-server/include
+        
+        # SSH commands to rebuild and restart service
+        ssh -i ~/.ssh/id_rsa $VM_USER@$VM_IP '
+          cd /repo/api-server && \
+          sudo g++ -std=c++17 -I./include -o api_server api_server.cpp -lssl -lcrypto -pthread && \
+          sudo mkdir -p /var/log/grabbiel-api && \
+          sudo chown ${USER}:${USER} /var/log/grabbiel-api && \
+          sudo systemctl restart grabbiel-api
+        '
